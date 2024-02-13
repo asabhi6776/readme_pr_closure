@@ -1,29 +1,21 @@
 name: Close README-only PRs
 
 on:
-  pull_request_target:
-    types: 
-      - opened
-      - edited
-      - synchronize
-
+  pull_request:
+    types: [opened, reopened, synchronize]
+    
 jobs:
-  close_readme_prs:
+  check_files:
+    if: ${{ !github.actor == 'dependabot[bot]' }} 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Check for README-only changes
-        id: check_changes
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.head.sha }})
-          if [[ $changed_files == *"README.md"* && $changed_files =~ ^README.md$ ]]; then
-            echo "::set-output name=readme_only::true"
-          fi
-
-      - name: Close pull request
-        if: ${{ steps.check_changes.outputs.readme_only == 'true' }}
-        uses: superbrothers/close-pull-request@v3
-        with:
-          comment: "This pull request only modifies the README.md file. We generally don't accept such PRs unless they contribute significant value."
+    - uses: actions/checkout@v2
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v5
+    - name: Check if only README changed
+      if: contains(steps.changed-files.outputs.all, 'README.md') && steps.changed-files.outputs.count == 1
+      uses: thomaseizinger/close-pull-request@v1
+      with:
+        pull-request-number: ${{ github.event.pull_request.number }}
+        comment: Closing this PR as only the README was updated.
